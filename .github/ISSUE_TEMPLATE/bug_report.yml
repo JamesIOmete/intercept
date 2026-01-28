@@ -1,0 +1,63 @@
+name: Bug report
+description: Report a bug or regression
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Intercept. Please complete the sections below.
+  - type: input
+    id: version
+    attributes:
+      label: Intercept version or commit
+      description: Output of `git rev-parse --short HEAD` or release tag.
+      placeholder: e.g. v2.10.0 or d2f2c37
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Install method
+      options:
+        - Docker
+        - Local (setup.sh)
+        - Other
+    validations:
+      required: true
+  - type: checkboxes
+    id: adsb_history
+    attributes:
+      label: ADS-B history enabled?
+      options:
+        - label: Yes, ADS-B history is enabled
+        - label: No, ADS-B history is disabled
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What went wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include exact steps so we can reproduce.
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Paste relevant logs or screenshots.
