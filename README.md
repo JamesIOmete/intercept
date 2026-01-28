@@ -72,6 +72,23 @@ The ADS-B history feature persists aircraft messages to Postgres for long-term a
 docker compose --profile history up -d
 ```
 
+Set the following environment variables (for example in a `.env` file):
+
+```bash
+INTERCEPT_ADSB_HISTORY_ENABLED=true
+INTERCEPT_ADSB_DB_HOST=adsb_db
+INTERCEPT_ADSB_DB_PORT=5432
+INTERCEPT_ADSB_DB_NAME=intercept_adsb
+INTERCEPT_ADSB_DB_USER=intercept
+INTERCEPT_ADSB_DB_PASSWORD=intercept
+```
+
+To store Postgres data on external storage, set `PGDATA_PATH` (defaults to `./pgdata`):
+
+```bash
+PGDATA_PATH=/mnt/usbpi1/intercept/pgdata
+```
+
 Then open **/adsb/history** for the reporting dashboard.
 
 ### Open the Interface
