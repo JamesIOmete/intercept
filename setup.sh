@@ -303,6 +303,10 @@ install_python_deps() {
   else
     ok "Python dependencies installed"
   fi
+
+  # Ensure Flask 3.0+ is installed (required for Werkzeug 3.x compatibility)
+  # System apt packages may have older Flask 2.x which is incompatible
+  python -m pip install --upgrade "flask>=3.0.0" >/dev/null 2>&1 || true
   echo
 }
 
@@ -413,7 +417,7 @@ install_multimon_ng_from_source_macos() {
 }
 
 install_macos_packages() {
-  TOTAL_STEPS=14
+  TOTAL_STEPS=15
   CURRENT_STEP=0
 
   progress "Checking Homebrew"
@@ -478,6 +482,19 @@ install_macos_packages() {
   progress "Installing gpsd"
   brew_install gpsd
 
+  progress "Installing Ubertooth tools (optional)"
+  if ! cmd_exists ubertooth-btle; then
+    echo
+    info "Ubertooth is used for advanced Bluetooth packet sniffing with Ubertooth One hardware."
+    if ask_yes_no "Do you want to install Ubertooth tools?"; then
+      brew_install ubertooth || warn "Ubertooth not available via Homebrew"
+    else
+      warn "Skipping Ubertooth installation. You can install it later if needed."
+    fi
+  else
+    ok "Ubertooth already installed"
+  fi
+
   warn "macOS note: hcitool/hciconfig are Linux (BlueZ) utilities and often unavailable on macOS."
   info "TSCM BLE scanning uses bleak library (installed via pip) for manufacturer data detection."
   echo
@@ -536,6 +553,8 @@ install_dump1090_from_source_debian() {
       || { fail "Failed to clone FlightAware dump1090"; exit 1; }
 
     cd "$tmp_dir/dump1090"
+    # Remove -Werror to prevent build failures on newer GCC versions
+    sed -i 's/-Werror//g' Makefile 2>/dev/null || sed -i '' 's/-Werror//g' Makefile
     info "Compiling FlightAware dump1090..."
     if make BLADERF=no RTLSDR=yes >/dev/null 2>&1; then
       $SUDO install -m 0755 dump1090 /usr/local/bin/dump1090
@@ -543,17 +562,17 @@ install_dump1090_from_source_debian() {
       exit 0
     fi
 
-    warn "FlightAware build failed. Falling back to antirez/dump1090..."
+    warn "FlightAware build failed. Falling back to wiedehopf/readsb..."
     rm -rf "$tmp_dir/dump1090"
-    git clone --depth 1 https://github.com/antirez/dump1090.git "$tmp_dir/dump1090" >/dev/null 2>&1 \
-      || { fail "Failed to clone antirez dump1090"; exit 1; }
+    git clone --depth 1 https://github.com/wiedehopf/readsb.git "$tmp_dir/dump1090" >/dev/null 2>&1 \
+      || { fail "Failed to clone wiedehopf/readsb"; exit 1; }
 
     cd "$tmp_dir/dump1090"
-    info "Compiling antirez dump1090..."
-    make >/dev/null 2>&1 || { fail "Failed to build dump1090 from source (required)."; exit 1; }
+    info "Compiling readsb..."
+    make RTLSDR=yes >/dev/null 2>&1 || { fail "Failed to build readsb from source (required)."; exit 1; }
 
-    $SUDO install -m 0755 dump1090 /usr/local/bin/dump1090
-    ok "dump1090 installed successfully (antirez)."
+    $SUDO install -m 0755 readsb /usr/local/bin/dump1090
+    ok "dump1090 installed successfully (via readsb)."
   )
 }
 
@@ -609,6 +628,34 @@ install_aiscatcher_from_source_debian() {
       ok "AIS-catcher installed successfully."
     else
       warn "Failed to build AIS-catcher from source. AIS vessel tracking will not be available."
+    fi
+  )
+}
+
+install_ubertooth_from_source_debian() {
+  info "Building Ubertooth from source..."
+
+  apt_install build-essential git cmake libusb-1.0-0-dev pkg-config libbluetooth-dev
+
+  # Run in subshell to isolate EXIT trap
+  (
+    tmp_dir="$(mktemp -d)"
+    trap 'rm -rf "$tmp_dir"' EXIT
+
+    info "Cloning Ubertooth..."
+    git clone --depth 1 https://github.com/greatscottgadgets/ubertooth.git "$tmp_dir/ubertooth" >/dev/null 2>&1 \
+      || { warn "Failed to clone Ubertooth"; exit 1; }
+
+    cd "$tmp_dir/ubertooth/host"
+    mkdir -p build && cd build
+
+    info "Compiling Ubertooth..."
+    if cmake .. >/dev/null 2>&1 && make >/dev/null 2>&1; then
+      $SUDO make install >/dev/null 2>&1
+      $SUDO ldconfig
+      ok "Ubertooth installed successfully from source."
+    else
+      warn "Failed to build Ubertooth from source."
     fi
   )
 }
@@ -720,7 +767,7 @@ install_debian_packages() {
     export NEEDRESTART_MODE=a
   fi
 
-  TOTAL_STEPS=19
+  TOTAL_STEPS=20
   CURRENT_STEP=0
 
   progress "Updating APT package lists"
@@ -817,6 +864,19 @@ install_debian_packages() {
 
   progress "Installing Bluetooth tools"
   apt_install bluez bluetooth || true
+
+  progress "Installing Ubertooth tools (optional)"
+  if ! cmd_exists ubertooth-btle; then
+    echo
+    info "Ubertooth is used for advanced Bluetooth packet sniffing with Ubertooth One hardware."
+    if ask_yes_no "Do you want to install Ubertooth tools?"; then
+      apt_install libubertooth-dev ubertooth || install_ubertooth_from_source_debian
+    else
+      warn "Skipping Ubertooth installation. You can install it later if needed."
+    fi
+  else
+    ok "Ubertooth already installed"
+  fi
 
   progress "Installing SoapySDR"
   # Exclude xtrx-dkms - its kernel module fails to build on newer kernels (6.14+)
@@ -956,3 +1016,4 @@ main() {
 }
 
 main "$@"
+exit 0

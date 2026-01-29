@@ -92,6 +92,25 @@ def add_security_headers(response):
 
 
 # ============================================
+# CONTEXT PROCESSORS
+# ============================================
+
+@app.context_processor
+def inject_offline_settings():
+    """Inject offline settings into all templates."""
+    from utils.database import get_setting
+    return {
+        'offline_settings': {
+            'enabled': get_setting('offline.enabled', False),
+            'assets_source': get_setting('offline.assets_source', 'cdn'),
+            'fonts_source': get_setting('offline.fonts_source', 'cdn'),
+            'tile_provider': get_setting('offline.tile_provider', 'openstreetmap'),
+            'tile_server_url': get_setting('offline.tile_server_url', '')
+        }
+    }
+
+
+# ============================================
 # GLOBAL PROCESS MANAGEMENT
 # ============================================
 
@@ -694,6 +713,22 @@ def main() -> None:
     # Register blueprints
     from routes import register_blueprints
     register_blueprints(app)
+
+    # Update TLE data in background thread (non-blocking)
+    def update_tle_background():
+        try:
+            from routes.satellite import refresh_tle_data
+            print("Updating satellite TLE data from CelesTrak...")
+            updated = refresh_tle_data()
+            if updated:
+                print(f"TLE data updated for: {', '.join(updated)}")
+            else:
+                print("TLE update: No satellites updated (may be offline)")
+        except Exception as e:
+            print(f"TLE update failed (will use cached data): {e}")
+
+    tle_thread = threading.Thread(target=update_tle_background, daemon=True)
+    tle_thread.start()
 
     # Initialize WebSocket for audio streaming
     try:

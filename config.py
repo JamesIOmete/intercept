@@ -7,10 +7,30 @@ import os
 import sys
 
 # Application version
-VERSION = "2.10.0"
+VERSION = "2.12.0"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.12.0",
+        "date": "January 2026",
+        "highlights": [
+            "ISS SSTV decoder with real-time ISS tracking globe",
+            "GitHub update notifications for new releases",
+            "Meshtastic QR code support and telemetry display",
+            "New Space category with reorganized UI",
+        ]
+    },
+    {
+        "version": "2.11.0",
+        "date": "January 2026",
+        "highlights": [
+            "Meshtastic LoRa mesh network integration",
+            "Ubertooth One BLE scanning support",
+            "Offline mode with bundled assets",
+            "Settings modal with tile provider configuration",
+        ]
+    },
     {
         "version": "2.10.0",
         "date": "January 2026",
@@ -49,16 +69,6 @@ CHANGELOG = [
             "WiFi/Bluetooth device correlation engine",
             "Tracker detection (AirTag, Tile, SmartTag)",
             "Risk scoring and threat classification",
-        ]
-    },
-    {
-        "version": "2.7.0",
-        "date": "November 2025",
-        "highlights": [
-            "Multi-SDR hardware support via SoapySDR",
-            "LimeSDR, HackRF, Airspy, SDRplay support",
-            "Improved aircraft database with photo lookup",
-            "GPS auto-detection and integration",
         ]
     },
 ]
@@ -143,6 +153,11 @@ ADSB_HISTORY_QUEUE_SIZE = _get_env_int('ADSB_HISTORY_QUEUE_SIZE', 50000)
 SATELLITE_UPDATE_INTERVAL = _get_env_int('SATELLITE_UPDATE_INTERVAL', 30)
 SATELLITE_TRAJECTORY_POINTS = _get_env_int('SATELLITE_TRAJECTORY_POINTS', 30)
 SATELLITE_ORBIT_MINUTES = _get_env_int('SATELLITE_ORBIT_MINUTES', 45)
+
+# Update checking
+GITHUB_REPO = _get_env('GITHUB_REPO', 'smittix/intercept')
+UPDATE_CHECK_ENABLED = _get_env_bool('UPDATE_CHECK_ENABLED', True)
+UPDATE_CHECK_INTERVAL_HOURS = _get_env_int('UPDATE_CHECK_INTERVAL_HOURS', 6)
 
 # Admin credentials
 ADMIN_USERNAME = _get_env('ADMIN_USERNAME', 'admin')
