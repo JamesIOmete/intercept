@@ -1,0 +1,12 @@
+services:
+  intercept:
+    container_name: intercept-uat
+    ports:
+      - "5051:5051"
+    environment:
+      - INTERCEPT_PORT=5051
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5051/health"]
+
+  adsb_db:
+    container_name: intercept-adsb-db-uat
