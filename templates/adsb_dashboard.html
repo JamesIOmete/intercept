@@ -4,9 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AIRCRAFT RADAR // INTERCEPT - See the Invisible</title>
+    <!-- Fonts - Conditional CDN/Local loading -->
+    {% if offline_settings.fonts_source == 'local' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts-local.css') }}">
+    {% else %}
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    {% endif %}
+    <!-- Leaflet.js - Conditional CDN/Local loading -->
+    {% if offline_settings.assets_source == 'local' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
+    <script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}"></script>
+    {% else %}
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    {% endif %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/adsb_dashboard.css') }}">
 </head>
@@ -305,6 +316,13 @@
     </main>
 
     <script>
+        // ============================================
+        // BIAS-T HELPER (reads from main dashboard localStorage)
+        // ============================================
+        function getBiasTEnabled() {
+            return localStorage.getItem('biasTEnabled') === 'true';
+        }
+
         // ============================================
         // STATE
         // ============================================
@@ -2329,9 +2347,18 @@ sudo make install</code>
                 maxZoom: 15
             });
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
-            }).addTo(radarMap);
+            // Use settings manager for tile layer (allows runtime changes)
+            window.radarMap = radarMap;
+            if (typeof Settings !== 'undefined' && Settings.createTileLayer) {
+                Settings.createTileLayer().addTo(radarMap);
+                Settings.registerMap(radarMap);
+            } else {
+                L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+                    maxZoom: 19,
+                    subdomains: 'abcd'
+                }).addTo(radarMap);
+            }
 
             // Draw range rings after map is ready
             setTimeout(() => drawRangeRings(), 100);
@@ -2404,7 +2431,8 @@ sudo make install</code>
                 const adsbDevice = parseInt(document.getElementById('adsbDeviceSelect').value) || 0;
 
                 const requestBody = {
-                    device: adsbDevice
+                    device: adsbDevice,
+                    bias_t: getBiasTEnabled()
                 };
                 if (remoteConfig) {
                     requestBody.remote_sbs_host = remoteConfig.host;
@@ -2585,7 +2613,7 @@ sudo make install</code>
                 const startResponse = await fetch('/adsb/start', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ device: device })
+                    body: JSON.stringify({ device: device, bias_t: getBiasTEnabled() })
                 });
 
                 const result = await startResponse.json();
@@ -2885,15 +2913,16 @@ sudo make install</code>
             const callsign = ac.callsign || icao;
             const alt = ac.altitude ? ac.altitude + ' ft' : 'N/A';
             const iconType = getAircraftIconType(ac.type_code, militaryInfo.military);
+            const isSelected = icao === selectedIcao;
 
             const prevState = markerState[icao] || {};
-            const iconChanged = prevState.rotation !== rotation || prevState.color !== color || prevState.iconType !== iconType;
+            const iconChanged = prevState.rotation !== rotation || prevState.color !== color || prevState.iconType !== iconType || prevState.isSelected !== isSelected;
             const tooltipChanged = prevState.callsign !== callsign || prevState.alt !== alt;
 
             if (markers[icao]) {
                 markers[icao].setLatLng([ac.lat, ac.lon]);
                 if (iconChanged) {
-                    markers[icao].setIcon(createMarkerIcon(rotation, color, iconType));
+                    markers[icao].setIcon(createMarkerIcon(rotation, color, iconType, isSelected));
                 }
                 if (tooltipChanged) {
                     markers[icao].unbindTooltip();
@@ -2902,7 +2931,7 @@ sudo make install</code>
                     });
                 }
             } else {
-                markers[icao] = L.marker([ac.lat, ac.lon], { icon: createMarkerIcon(rotation, color, iconType) })
+                markers[icao] = L.marker([ac.lat, ac.lon], { icon: createMarkerIcon(rotation, color, iconType, isSelected) })
                     .addTo(radarMap)
                     .on('click', () => selectAircraft(icao));
                 markers[icao].bindTooltip(`${callsign}<br>${alt}`, {
@@ -2910,7 +2939,7 @@ sudo make install</code>
                 });
             }
 
-            markerState[icao] = { rotation, color, callsign, alt, iconType };
+            markerState[icao] = { rotation, color, callsign, alt, iconType, isSelected };
         }
 
         // Aircraft type icon SVG paths
@@ -2953,12 +2982,16 @@ sudo make install</code>
             return 'jet';
         }
 
-        function createMarkerIcon(rotation, color, iconType = 'jet') {
+        function createMarkerIcon(rotation, color, iconType = 'jet', isSelected = false) {
             const path = AIRCRAFT_ICONS[iconType] || AIRCRAFT_ICONS.jet;
             const size = iconType === 'helicopter' ? 22 : 24;
+            const glowColor = isSelected ? 'rgba(255,255,255,0.9)' : color;
+            const glowSize = isSelected ? '10px' : '5px';
+            const trackingRing = isSelected ?
+                '<div class="tracking-ring"></div><div class="tracking-ring-inner"></div>' : '';
             return L.divIcon({
-                className: `aircraft-marker aircraft-${iconType}`,
-                html: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" style="transform: rotate(${rotation}deg); color: ${color}; filter: drop-shadow(0 0 5px ${color});">
+                className: `aircraft-marker aircraft-${iconType}${isSelected ? ' selected' : ''}`,
+                html: `${trackingRing}<svg width="${size}" height="${size}" viewBox="0 0 24 24" style="transform: rotate(${rotation}deg); color: ${color}; filter: drop-shadow(0 0 ${glowSize} ${glowColor});">
                     <path fill="currentColor" d="${path}"/>
                 </svg>`,
                 iconSize: [size, size],
@@ -3075,7 +3108,26 @@ sudo make install</code>
         }
 
         function selectAircraft(icao) {
+            const prevSelected = selectedIcao;
             selectedIcao = icao;
+
+            // Update marker icons for both previous and new selection
+            [prevSelected, icao].forEach(targetIcao => {
+                if (targetIcao && markers[targetIcao] && aircraft[targetIcao]) {
+                    const ac = aircraft[targetIcao];
+                    const militaryInfo = isMilitaryAircraft(targetIcao, ac.callsign);
+                    const rotation = Math.round((ac.heading || 0) / 5) * 5;
+                    const color = militaryInfo.military ? '#556b2f' : getAltitudeColor(ac.altitude);
+                    const iconType = getAircraftIconType(ac.type_code, militaryInfo.military);
+                    const isSelected = targetIcao === icao;
+                    markers[targetIcao].setIcon(createMarkerIcon(rotation, color, iconType, isSelected));
+                    // Update marker state to reflect selection
+                    if (markerState[targetIcao]) {
+                        markerState[targetIcao].isSelected = isSelected;
+                    }
+                }
+            });
+
             renderAircraftList();
             showAircraftDetails(icao);
             updateFlightLookupBtn();
