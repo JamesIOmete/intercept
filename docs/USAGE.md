@@ -101,6 +101,28 @@ Set the following environment variables (Docker recommended):
 | `INTERCEPT_ADSB_DB_USER` | `intercept` | Database user |
 | `INTERCEPT_ADSB_DB_PASSWORD` | `intercept` | Database password |
 
+### Other ADS-B Settings
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `INTERCEPT_ADSB_AUTO_START` | `false` | Auto-start ADS-B tracking when the dashboard loads |
+| `INTERCEPT_SHARED_OBSERVER_LOCATION` | `true` | Share observer location across ADS-B/AIS/SSTV/Satellite modules |
+
+**Local install example**
+
+```bash
+INTERCEPT_ADSB_AUTO_START=true \
+INTERCEPT_SHARED_OBSERVER_LOCATION=false \
+python app.py
+```
+
+**Docker example (.env)**
+
+```bash
+INTERCEPT_ADSB_AUTO_START=true
+INTERCEPT_SHARED_OBSERVER_LOCATION=false
+```
+
 ### Docker Setup
 
 `docker-compose.yml` includes an `adsb_db` service and a persistent volume for history storage:
